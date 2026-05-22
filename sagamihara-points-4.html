@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="還元管理" />
+  <meta name="theme-color" content="#0a0a1a" />
+  <title>相模原市 還元ポイント管理</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: linear-gradient(135deg, #0a0a1a 0%, #12122a 50%, #0a0a1a 100%);
+      min-height: 100vh;
+      font-family: 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+      color: #e8e8f5;
+      padding-bottom: env(safe-area-inset-bottom, 20px);
+    }
+
+    /* Header */
+    #header {
+      background: linear-gradient(90deg, #1a1a3e 0%, #0f0f2a 100%);
+      border-bottom: 1px solid #2a2a5a;
+      padding: 16px 20px;
+      padding-top: calc(16px + env(safe-area-inset-top, 0px));
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    #header .subtitle { font-size: 11px; color: #6060aa; letter-spacing: 0.2em; margin-bottom: 4px; }
+    #header .title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+
+    /* Main container */
+    #main { padding: 0 16px 40px; max-width: 480px; margin: 0 auto; }
+
+    /* Payment tabs */
+    #pay-tabs { display: flex; gap: 8px; margin-top: 20px; }
+    .pay-tab {
+      flex: 1; padding: 12px 6px; border-radius: 14px;
+      border: 2px solid #2a2a4a; background: #12122a;
+      cursor: pointer; transition: all 0.2s;
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+    }
+    .pay-tab.active { border-color: var(--c); background: color-mix(in srgb, var(--c) 15%, #12122a); }
+    .pay-tab .tab-name { font-size: 12px; font-weight: 700; color: #8888bb; }
+    .pay-tab.active .tab-name { color: #fff; }
+    .pay-tab .tab-pts { font-size: 18px; font-weight: 800; color: #6666aa; }
+    .pay-tab.active .tab-pts { color: var(--c); }
+    .pay-tab .mini-bar-wrap { width: 80%; height: 4px; border-radius: 2px; background: #2a2a4a; overflow: hidden; }
+    .pay-tab .mini-bar { height: 100%; background: var(--c); transition: width 0.5s; }
+    .pay-tab .done-label { font-size: 10px; color: #FFD700; display: none; }
+    .pay-tab.done .done-label { display: block; }
+
+    /* Progress card */
+    #progress-card {
+      margin-top: 16px; padding: 24px 20px; border-radius: 20px;
+      background: linear-gradient(135deg, #1a1a3e, #12122a);
+      border: 1px solid color-mix(in srgb, var(--active-c) 30%, transparent);
+      box-shadow: 0 0 30px color-mix(in srgb, var(--active-c) 15%, transparent);
+      display: flex; gap: 20px; align-items: center;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    #ring-wrap { position: relative; flex-shrink: 0; }
+    #ring-wrap svg { transform: rotate(-90deg); }
+    #ring-track { transition: stroke 0.3s; }
+    #ring-fill { transition: stroke-dasharray 0.6s cubic-bezier(.4,2,.6,1), stroke 0.3s; }
+    #ring-label {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    #ring-pct { font-size: 22px; font-weight: 800; line-height: 1; color: var(--active-c); transition: color 0.3s; }
+    #ring-sub { font-size: 10px; color: #8888bb; }
+    #progress-info { flex: 1; }
+    #earned-label { font-size: 11px; color: #6060aa; margin-bottom: 2px; }
+    #earned-num { font-size: 28px; font-weight: 800; line-height: 1; color: var(--active-c); transition: color 0.3s; }
+    #earned-num span { font-size: 13px; color: #8888bb; font-weight: 500; }
+    #remaining-msg { font-size: 13px; color: #c8c8e8; margin: 6px 0; }
+    #remaining-msg strong { color: #FFD700; font-size: 18px; }
+    #needed-msg {
+      font-size: 11px; color: #8888bb;
+      background: #0a0a1a; border-radius: 8px;
+      padding: 6px 10px; display: inline-block;
+    }
+    #needed-msg strong { color: #c8c8e8; font-weight: 700; }
+    #done-msg {
+      font-size: 15px; font-weight: 700; color: #FFD700;
+      background: rgba(255,215,0,0.13); border-radius: 8px;
+      padding: 8px 12px; display: inline-block;
+    }
+
+    /* Form card */
+    #form-card {
+      margin-top: 16px; padding: 20px; border-radius: 20px;
+      background: #12122a; border: 1px solid #2a2a4a;
+    }
+    .section-label { font-size: 11px; color: #6060aa; margin-bottom: 6px; }
+    .form-section { margin-bottom: 14px; }
+    #form-title { font-size: 13px; font-weight: 700; color: #8888bb; margin-bottom: 16px; letter-spacing: 0.05em; }
+
+    /* Store chips */
+    #store-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .store-chip {
+      padding: 5px 12px; border-radius: 20px;
+      border: 1px solid #2a2a4a; background: transparent;
+      color: #8888bb; font-size: 12px; cursor: pointer;
+      transition: all 0.15s; font-family: inherit;
+    }
+    .store-chip.active {
+      border-color: var(--active-c);
+      background: color-mix(in srgb, var(--active-c) 15%, transparent);
+      color: #fff;
+    }
+
+    /* Rate buttons */
+    #rate-btns { display: flex; gap: 8px; }
+    .rate-btn {
+      flex: 1; padding: 10px; border-radius: 12px;
+      border: 1px solid #2a2a4a; background: transparent;
+      color: #8888bb; font-size: 16px; font-weight: 700;
+      cursor: pointer; transition: all 0.15s; font-family: inherit;
+    }
+    .rate-btn.active {
+      border-color: var(--active-c);
+      background: color-mix(in srgb, var(--active-c) 15%, transparent);
+      color: #fff;
+    }
+
+    /* Amount input */
+    #amount-wrap { position: relative; }
+    #yen-sign {
+      position: absolute; left: 14px; top: 50%;
+      transform: translateY(-50%); color: #8888bb; font-size: 16px; pointer-events: none;
+    }
+    #amount-input {
+      width: 100%; padding: 12px 14px 12px 28px;
+      border-radius: 12px; border: 1px solid #2a2a4a;
+      background: #0a0a1a; color: #e8e8f5;
+      font-size: 20px; font-weight: 700; outline: none;
+      transition: border 0.2s; font-family: inherit;
+    }
+    #amount-input:focus { border-color: var(--active-c); }
+    #preview-pts { margin-top: 6px; font-size: 12px; color: var(--active-c); min-height: 18px; transition: color 0.3s; }
+
+    /* Add button */
+    #add-btn {
+      width: 100%; padding: 14px; border-radius: 14px;
+      border: none; background: linear-gradient(135deg, var(--active-c), var(--active-a));
+      color: #fff; font-size: 16px; font-weight: 800;
+      cursor: pointer; transition: all 0.2s;
+      letter-spacing: 0.05em; font-family: inherit;
+    }
+    #add-btn:disabled { background: #2a2a4a; color: #4a4a6a; cursor: not-allowed; }
+    #add-btn.flash { animation: flash 0.4s ease; }
+    @keyframes flash { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+    /* History */
+    #history-section { margin-top: 16px; }
+    #history-section h3 { font-size: 12px; color: #6060aa; margin-bottom: 10px; letter-spacing: 0.1em; }
+    #history-list { display: flex; flex-direction: column; gap: 8px; }
+    .hist-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px; border-radius: 14px;
+      background: #12122a; border: 1px solid #2a2a4a;
+    }
+    .hist-info { flex: 1; }
+    .hist-top { display: flex; justify-content: space-between; align-items: center; }
+    .hist-store { font-size: 14px; font-weight: 600; }
+    .hist-pts { font-size: 16px; font-weight: 800; color: var(--active-c); transition: color 0.3s; }
+    .hist-sub { font-size: 11px; color: #6060aa; margin-top: 2px; }
+    .del-btn {
+      background: none; border: none; color: #4a4a6a;
+      font-size: 20px; cursor: pointer; padding: 0 4px; line-height: 1;
+    }
+    .del-btn:hover { color: #ff4444; }
+
+    /* Summary */
+    #summary {
+      margin-top: 20px; padding: 16px; border-radius: 16px;
+      background: #0a0a1a; border: 1px solid #1a1a3a;
+    }
+    #summary h3 { font-size: 11px; color: #6060aa; margin-bottom: 12px; letter-spacing: 0.1em; }
+    .sum-row { margin-bottom: 10px; }
+    .sum-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .sum-name { font-size: 12px; color: #c8c8e8; }
+    .sum-val { font-size: 12px; font-weight: 700; }
+    .sum-bar-wrap { height: 5px; border-radius: 3px; background: #1a1a3a; overflow: hidden; }
+    .sum-bar { height: 100%; transition: width 0.5s; }
+    #total-line {
+      margin-top: 12px; font-size: 13px; color: #8888bb;
+      border-top: 1px solid #1a1a3a; padding-top: 12px;
+    }
+    #total-line strong { color: #FFD700; font-size: 16px; font-weight: 700; }
+
+    /* Save/Load bar */
+    #save-bar {
+      margin-top: 20px; padding: 16px; border-radius: 16px;
+      background: #0a0a1a; border: 1px solid #1a1a3a;
+      display: flex; gap: 10px; align-items: center;
+    }
+    #save-bar .bar-label { font-size: 11px; color: #6060aa; flex: 1; }
+    .save-btn {
+      padding: 10px 16px; border-radius: 12px; border: none;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: all 0.2s;
+    }
+    #btn-save {
+      background: linear-gradient(135deg, #2a5a2a, #1a3a1a);
+      color: #88ff88; border: 1px solid #3a7a3a;
+    }
+    #btn-save:active { opacity: 0.7; }
+    #btn-load {
+      background: linear-gradient(135deg, #2a2a5a, #1a1a3a);
+      color: #8888ff; border: 1px solid #3a3a7a;
+    }
+    #btn-load:active { opacity: 0.7; }
+    #save-msg { font-size: 11px; color: #88ff88; margin-top: 8px; min-height: 16px; text-align: center; }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <div class="subtitle">相模原市 還元キャンペーン</div>
+  <div class="title">ポイント管理アプリ</div>
+</div>
+
+<div id="main">
+  <!-- Payment tabs -->
+  <div id="pay-tabs"></div>
+
+  <!-- Progress card -->
+  <div id="progress-card">
+    <div id="ring-wrap">
+      <svg width="110" height="110">
+        <circle id="ring-track" cx="55" cy="55" r="47" fill="none" stroke="#1a1a2e" stroke-width="10"/>
+        <circle id="ring-fill" cx="55" cy="55" r="47" fill="none" stroke="#E60012"
+          stroke-width="10" stroke-linecap="round"
+          stroke-dasharray="0 295.3"/>
+      </svg>
+      <div id="ring-label">
+        <div id="ring-pct">0%</div>
+        <div id="ring-sub">達成</div>
+      </div>
+    </div>
+    <div id="progress-info">
+      <div id="earned-label">獲得済みポイント</div>
+      <div id="earned-num">0<span> / 2,500pt</span></div>
+      <div id="remaining-msg"><strong id="rem-val">2,500</strong>pt もらえる！</div>
+      <div id="needed-msg">あと <strong id="need-val">¥12,500</strong> 使うと達成</div>
+      <div id="done-msg" style="display:none">🎉 上限達成！おめでとう</div>
+    </div>
+  </div>
+
+  <!-- Input form -->
+  <div id="form-card">
+    <div id="form-title">＋ 利用を記録する</div>
+
+    <div class="form-section">
+      <div class="section-label">お店の種類</div>
+      <div id="store-chips"></div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">還元率</div>
+      <div id="rate-btns">
+        <button class="rate-btn" data-rate="10" onclick="selectRate(this)">10% 還元</button>
+        <button class="rate-btn active" data-rate="20" onclick="selectRate(this)">20% 還元</button>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-label">支払金額</div>
+      <div id="amount-wrap">
+        <span id="yen-sign">¥</span>
+        <input id="amount-input" type="number" placeholder="0" inputmode="numeric" oninput="updatePreview()" />
+      </div>
+      <div id="preview-pts"></div>
+    </div>
+
+    <button id="add-btn" onclick="addEntry()">記録する</button>
+  </div>
+
+  <!-- History -->
+  <div id="history-section">
+    <h3 id="history-title"></h3>
+    <div id="history-list"></div>
+  </div>
+
+  <!-- Summary -->
+  <div id="summary">
+    <h3>全決済方法の合計</h3>
+    <div id="sum-rows"></div>
+    <div id="total-line">合計獲得済み：<strong id="grand-total">0</strong>pt <span style="font-size:11px">/ 7,500pt</span></div>
+  </div>
+
+  <!-- Save / Load -->
+  <div id="save-bar">
+    <div style="flex:1">
+      <div class="bar-label">💾 データのバックアップ</div>
+      <div id="save-msg"></div>
+    </div>
+    <button class="save-btn" id="btn-save" onclick="exportData()">保存</button>
+    <button class="save-btn" id="btn-load" onclick="document.getElementById('file-input').click()">読込</button>
+    <input type="file" id="file-input" accept=".json" style="display:none" onchange="importData(event)" />
+  </div>
+</div>
+
+<script>
+const MAX = 2500;
+const CIRC = 2 * Math.PI * 47;
+
+const PAYMENTS = [
+  { id: 'dpay',    name: 'd払い',   color: '#E60012', accent: '#FF6B6B' },
+  { id: 'paypay',  name: 'PayPay',  color: '#FF0033', accent: '#FFD700' },
+  { id: 'rakuten', name: '楽天ペイ', color: '#BF0000', accent: '#FF6B35' },
+];
+
+const STORES = ['スーパー','コンビニ','ドラッグストア','飲食店','家電量販店','衣料品店','ホームセンター','書店','その他'];
+
+// State
+let state = loadState();
+let activePay = 'dpay';
+let activeStore = 'スーパー';
+let activeRate = '20';
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('sagamihara_pts');
+    if (s) return JSON.parse(s);
+  } catch(e) {}
+  return Object.fromEntries(PAYMENTS.map(p => [p.id, { earned: 0, history: [] }]));
+}
+
+function saveState() {
+  localStorage.setItem('sagamihara_pts', JSON.stringify(state));
+}
+
+function getActive() { return PAYMENTS.find(p => p.id === activePay); }
+function getCSSColor() { return getActive().color; }
+
+function applyTheme() {
+  const p = getActive();
+  document.documentElement.style.setProperty('--active-c', p.color);
+  document.documentElement.style.setProperty('--active-a', p.accent);
+}
+
+// Build payment tabs
+function buildTabs() {
+  const wrap = document.getElementById('pay-tabs');
+  wrap.innerHTML = '';
+  PAYMENTS.forEach(p => {
+    const d = state[p.id];
+    const pct = Math.min(d.earned / MAX * 100, 100);
+    const tab = document.createElement('div');
+    tab.className = 'pay-tab' + (p.id === activePay ? ' active' : '') + (d.earned >= MAX ? ' done' : '');
+    tab.style.setProperty('--c', p.color);
+    tab.innerHTML = `
+      <div class="tab-name">${p.name}</div>
+      <div class="tab-pts">${d.earned}<span style="font-size:10px;font-weight:500">pt</span></div>
+      <div class="mini-bar-wrap"><div class="mini-bar" style="width:${pct}%"></div></div>
+      <div class="done-label">✓ 達成！</div>
+    `;
+    tab.onclick = () => { activePay = p.id; renderAll(); };
+    wrap.appendChild(tab);
+  });
+}
+
+// Build store chips
+function buildStoreChips() {
+  const wrap = document.getElementById('store-chips');
+  wrap.innerHTML = '';
+  STORES.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'store-chip' + (s === activeStore ? ' active' : '');
+    btn.textContent = s;
+    btn.onclick = () => { activeStore = s; buildStoreChips(); };
+    wrap.appendChild(btn);
+  });
+}
+
+// Update progress card
+function updateProgress() {
+  const d = state[activePay];
+  const p = getActive();
+  const earned = d.earned;
+  const remaining = MAX - earned;
+  const pct = Math.min(earned / MAX * 100, 100);
+  const rate = parseInt(activeRate) / 100;
+  const needed = remaining > 0 ? Math.ceil(remaining / rate) : 0;
+  const dash = CIRC * pct / 100;
+
+  document.getElementById('ring-fill').style.strokeDasharray = `${dash} ${CIRC}`;
+  document.getElementById('ring-fill').setAttribute('stroke', p.color);
+  document.getElementById('ring-pct').textContent = Math.round(pct) + '%';
+  document.getElementById('ring-pct').style.color = p.color;
+  document.getElementById('earned-num').innerHTML = `${earned.toLocaleString()}<span> / 2,500pt</span>`;
+  document.getElementById('earned-num').style.color = p.color;
+
+  if (remaining > 0) {
+    document.getElementById('remaining-msg').style.display = 'block';
+    document.getElementById('needed-msg').style.display = 'inline-block';
+    document.getElementById('done-msg').style.display = 'none';
+    document.getElementById('rem-val').textContent = remaining.toLocaleString();
+    document.getElementById('need-val').textContent = '¥' + needed.toLocaleString();
+  } else {
+    document.getElementById('remaining-msg').style.display = 'none';
+    document.getElementById('needed-msg').style.display = 'none';
+    document.getElementById('done-msg').style.display = 'inline-block';
+  }
+}
+
+// Update history
+function updateHistory() {
+  const d = state[activePay];
+  const p = getActive();
+  const sec = document.getElementById('history-section');
+  const list = document.getElementById('history-list');
+  const title = document.getElementById('history-title');
+
+  if (d.history.length === 0) {
+    sec.style.display = 'none';
+    return;
+  }
+  sec.style.display = 'block';
+  title.textContent = p.name + ' の履歴';
+  list.innerHTML = '';
+  d.history.forEach((h, i) => {
+    const item = document.createElement('div');
+    item.className = 'hist-item';
+    item.innerHTML = `
+      <div class="hist-info">
+        <div class="hist-top">
+          <span class="hist-store">${h.store}</span>
+          <span class="hist-pts">+${h.points}pt</span>
+        </div>
+        <div class="hist-sub">¥${h.amount.toLocaleString()} × ${h.rate}%　${h.date}</div>
+      </div>
+      <button class="del-btn" onclick="deleteEntry(${i})">×</button>
+    `;
+    list.appendChild(item);
+  });
+}
+
+// Update summary
+function updateSummary() {
+  const rows = document.getElementById('sum-rows');
+  rows.innerHTML = '';
+  let total = 0;
+  PAYMENTS.forEach(p => {
+    const d = state[p.id];
+    const pct = Math.min(d.earned / MAX * 100, 100);
+    const color = d.earned >= MAX ? '#FFD700' : p.color;
+    total += d.earned;
+    const row = document.createElement('div');
+    row.className = 'sum-row';
+    row.innerHTML = `
+      <div class="sum-top">
+        <span class="sum-name">${p.name}</span>
+        <span class="sum-val" style="color:${color}">${d.earned} / ${MAX}pt ${d.earned >= MAX ? '✓' : ''}</span>
+      </div>
+      <div class="sum-bar-wrap"><div class="sum-bar" style="width:${pct}%;background:${color}"></div></div>
+    `;
+    rows.appendChild(row);
+  });
+  document.getElementById('grand-total').textContent = total.toLocaleString();
+}
+
+function updatePreview() {
+  const amt = parseFloat(document.getElementById('amount-input').value) || 0;
+  const rate = parseInt(activeRate) / 100;
+  const earned = state[activePay].earned;
+  const remaining = MAX - earned;
+  const preview = Math.min(Math.floor(amt * rate), remaining);
+  const el = document.getElementById('preview-pts');
+  el.textContent = amt > 0 ? `→ 獲得予定: ${preview}pt` : '';
+  const btn = document.getElementById('add-btn');
+  btn.disabled = !(amt > 0 && earned < MAX);
+}
+
+function selectRate(btn) {
+  document.querySelectorAll('.rate-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeRate = btn.dataset.rate;
+  updatePreview();
+  updateProgress();
+}
+
+function addEntry() {
+  const amt = parseFloat(document.getElementById('amount-input').value);
+  if (!amt || amt <= 0) return;
+  const rate = parseInt(activeRate) / 100;
+  const earned = state[activePay].earned;
+  const raw = Math.floor(amt * rate);
+  const actual = Math.min(raw, MAX - earned);
+  if (actual <= 0) return;
+
+  const now = new Date();
+  const entry = {
+    store: activeStore,
+    amount: amt,
+    rate: activeRate,
+    points: actual,
+    date: now.toLocaleTimeString('ja-JP', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }),
+  };
+  state[activePay].earned += actual;
+  state[activePay].history.unshift(entry);
+  saveState();
+
+  document.getElementById('amount-input').value = '';
+  const btn = document.getElementById('add-btn');
+  btn.textContent = `＋${actual}pt 追加しました！`;
+  btn.classList.add('flash');
+  setTimeout(() => {
+    btn.textContent = '記録する';
+    btn.classList.remove('flash');
+    updatePreview();
+  }, 2000);
+
+  renderAll();
+}
+
+function deleteEntry(idx) {
+  const removed = state[activePay].history.splice(idx, 1)[0];
+  state[activePay].earned -= removed.points;
+  saveState();
+  renderAll();
+}
+
+function renderAll() {
+  applyTheme();
+  buildTabs();
+  buildStoreChips();
+  updateProgress();
+  updateHistory();
+  updateSummary();
+  updatePreview();
+}
+
+// Export data as JSON file
+function exportData() {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  a.href = url;
+  a.download = `points-backup-${dateStr}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showSaveMsg('✅ 保存しました！');
+}
+
+// Import data from JSON file
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      // validate
+      const valid = PAYMENTS.every(p => imported[p.id] && typeof imported[p.id].earned === 'number');
+      if (!valid) throw new Error('invalid');
+      state = imported;
+      saveState();
+      renderAll();
+      showSaveMsg('✅ 読み込みました！');
+    } catch {
+      showSaveMsg('❌ ファイルが正しくありません');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function showSaveMsg(msg) {
+  const el = document.getElementById('save-msg');
+  el.textContent = msg;
+  setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+// Init
+renderAll();
+</script>
+</body>
+</html>
